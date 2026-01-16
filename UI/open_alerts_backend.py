@@ -1,10 +1,10 @@
 import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import os
-import time
 from openpyxl import Workbook
 from dotenv import load_dotenv
+import time
+import os
 
 # -------------------------------------------------
 # Load environment
@@ -48,9 +48,9 @@ def resolve_user(user_field, team_id):
     return name
 
 # -------------------------------------------------
-# Fetch incidents
+# Fetch all open alerts
 # -------------------------------------------------
-def fetch_incidents_for_range(from_dt, to_dt):
+def fetch_all_open_alerts():
     rows = []
     for team_name, team_id in teams.items():
         headers = {"x-api-key": SPIKE_API_KEY, "x-team-id": team_id}
@@ -59,9 +59,9 @@ def fetch_incidents_for_range(from_dt, to_dt):
             continue
         incidents = resp.json().get("incidents", resp.json())
         for inc in incidents:
-            nack_dt = utc_to_ist(inc.get("NACK_at"))
-            if not nack_dt or not (from_dt <= nack_dt <= to_dt):
+            if inc.get("RES_at"):
                 continue
+            nack_dt = utc_to_ist(inc.get("NACK_at"))
             grouped = inc.get("groupedIncident", {})
             notes = []
             for note in grouped.get("notes", []):
@@ -87,13 +87,13 @@ def fetch_incidents_for_range(from_dt, to_dt):
 # -------------------------------------------------
 # Generate Excel
 # -------------------------------------------------
-def generate_excel(rows, from_dt=None, to_dt=None):
+def generate_excel(rows):
     wb = Workbook()
     ws = wb.active
-    ws.title = "Incident Report"
+    ws.title = "Open Alerts"
     ws.append(list(rows[0].keys()))
     for r in rows:
         ws.append(list(r.values()))
-    file_name = f"spike_incidents_{from_dt.strftime('%Y-%m-%d')}_to_{to_dt.strftime('%Y-%m-%d')}.xlsx" if from_dt else "spike_incidents.xlsx"
+    file_name = "spike_open_alerts_all_teams.xlsx"
     wb.save(file_name)
     return file_name
